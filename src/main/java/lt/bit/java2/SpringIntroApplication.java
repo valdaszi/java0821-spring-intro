@@ -5,13 +5,12 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -28,7 +27,10 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.net.URL;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Currency;
+import java.util.List;
 
 @SpringBootApplication
 public class SpringIntroApplication {
@@ -136,7 +138,8 @@ class CurrencyService {
 		if (amount == null || currency == null || currency.equals("EUR")) {
 			return amount;
 		} else {
-			return amount.divide(
+			BigDecimal rate = bankService.exchangeRate(currency);
+			return rate == null ? null : amount.divide(
 					bankService.exchangeRate(currency),
 					2,
 					RoundingMode.HALF_UP);
@@ -203,11 +206,84 @@ class EmployeeController {
 		return "employee"; //  -> ../templates/employee.html
 	}
 
+	@GetMapping("/api")
+	@ResponseBody
+	public Account getEmployee() {
+		Account account = new Account();
+		account.setName("Petras");
+		account.setDate(LocalDate.now());
+		account.setTime(LocalDateTime.now());
+		return account;
+	}
+}
+
+@RestController
+@RequestMapping("/api")
+class API {
+
+	@GetMapping("/accounts")
+	public List<Account> getAccount() {
+		List<Account> accounts = new ArrayList<>();
+		Account account = new Account();
+		account.setName("Petras");
+		account.setDate(LocalDate.now());
+		account.setTime(LocalDateTime.now());
+		accounts.add(account);
+
+		account = new Account();
+		account.setName("Jonas");
+		account.setDate(LocalDate.of(1900, 2, 28));
+		account.setTime(LocalDateTime.of(1990, 2, 28, 23, 59, 59));
+		accounts.add(account);
+
+		return accounts;
+	}
+
+	@GetMapping("/account")
+	public Account getAccountByParam(@RequestParam int id) {
+		Account account = new Account();
+		account.setId(id);
+		account.setName("Petras");
+		account.setDate(LocalDate.now());
+		account.setTime(LocalDateTime.now());
+		return account;
+	}
+
+	@GetMapping("/account/{name}/{id}")
+	public ResponseEntity<Account> getAccountByPath(@PathVariable(required = false) Integer id,
+													@PathVariable String name) {
+		if (id != null && id > 0) {
+			Account account = new Account();
+			account.setId(id);
+			account.setName(name);
+			account.setDate(LocalDate.now());
+			account.setTime(LocalDateTime.now());
+			return ResponseEntity.ok(account);
+		} else {
+			return ResponseEntity.badRequest().build();
+		}
+	}
+
+	@PutMapping("/account")
+	public Account putAccount(@RequestBody Account account) {
+		return account;
+	}
+
 }
 
 class Account {
+	private Integer id;
 	private String name;
 	private LocalDate date;
+	private LocalDateTime time;
+
+	public Integer getId() {
+		return id;
+	}
+
+	public void setId(Integer id) {
+		this.id = id;
+	}
 
 	public String getName() {
 		return name;
@@ -223,6 +299,14 @@ class Account {
 
 	public void setDate(LocalDate date) {
 		this.date = date;
+	}
+
+	public LocalDateTime getTime() {
+		return time;
+	}
+
+	public void setTime(LocalDateTime time) {
+		this.time = time;
 	}
 }
 

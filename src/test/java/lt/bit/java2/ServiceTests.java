@@ -1,7 +1,6 @@
 package lt.bit.java2;
 
 import org.junit.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,7 +13,7 @@ public class ServiceTests {
     EUCentralBankService bankService = new EUCentralBankService();
 
     private InputStream getECB() {
-        InputStream is = SpringIntroApplicationTests.class.getClassLoader()
+        InputStream is = CurrencyServiceTests.class.getClassLoader()
                 .getResourceAsStream("ECB.xml");
         assertThat(is).isNotNull();
         return is;

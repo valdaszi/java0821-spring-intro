@@ -17,7 +17,7 @@ import static org.mockito.BDDMockito.given;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
-public class SpringIntroApplicationTests {
+public class CurrencyServiceTests {
 
 	@Autowired
 	CurrencyService currencyService;
@@ -35,5 +35,7 @@ public class SpringIntroApplicationTests {
 
 		value = currencyService.exchange("PLN", new BigDecimal("320.54"));
 		assertThat(value).isEqualTo(new BigDecimal("80.14"));
+
+		assertThat(currencyService.exchange("XXX", new BigDecimal("320.54"))).isNull();
 	}
 }
