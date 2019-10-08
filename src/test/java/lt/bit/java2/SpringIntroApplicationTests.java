@@ -19,32 +19,21 @@ import static org.mockito.BDDMockito.given;
 @SpringBootTest
 public class SpringIntroApplicationTests {
 
-	@Test
-	public void contextLoads() {
-	}
-
 	@Autowired
-	EUCentralBankService bankService;
+	CurrencyService currencyService;
 
-	private InputStream getECB() {
-		InputStream is = SpringIntroApplicationTests.class.getClassLoader()
-				.getResourceAsStream("ECB.xml");
-		assertThat(is).isNotNull();
-		return is;
-	}
+	@MockBean
+	BankExchageService bankExchageService;
 
 	@Test
-	public void testECBResponse() throws IOException {
-		assertThat(bankService.exchangeRate("USD", getECB()))
-				.isEqualTo(new BigDecimal("1.0979"));
+	public void testCurrencyService() {
+		given(bankExchageService.exchangeRate("USD")).willReturn(new BigDecimal("1.6"));
+		given(bankExchageService.exchangeRate("PLN")).willReturn(new BigDecimal("4.0"));
 
-		assertThat(bankService.exchangeRate("ZAR", getECB()))
-				.isEqualTo(new BigDecimal("16.6446"));
+		BigDecimal value = currencyService.exchange("USD", new BigDecimal("128.20"));
+		assertThat(value).isEqualTo(new BigDecimal("80.13"));
 
-		assertThat(bankService.exchangeRate("DKK", getECB()))
-				.isEqualTo(new BigDecimal("7.4666"));
-
-		assertThat(bankService.exchangeRate("XXX", getECB()))
-				.isNull();
+		value = currencyService.exchange("PLN", new BigDecimal("320.54"));
+		assertThat(value).isEqualTo(new BigDecimal("80.14"));
 	}
 }
