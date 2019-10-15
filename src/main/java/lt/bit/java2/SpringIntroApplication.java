@@ -6,17 +6,28 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+import javax.annotation.security.PermitAll;
+import javax.annotation.security.RolesAllowed;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -29,6 +40,7 @@ import java.net.URL;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Currency;
 import java.util.List;
 
@@ -41,6 +53,45 @@ public class SpringIntroApplication {
 	@Bean
 	public CounterService counterService() {
 		return new CounterService(100);
+	}
+}
+
+@Configuration
+class MVCConfig implements WebMvcConfigurer {
+	@Override
+	public void addViewControllers(ViewControllerRegistry registry) {
+		registry.addViewController("/error").setViewName("error");
+	}
+}
+
+@Configuration
+@EnableGlobalMethodSecurity(jsr250Enabled = true)
+class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+	@Bean
+	@Override
+	protected UserDetailsService userDetailsService() {
+		List<UserDetails> users = Arrays.asList(
+				User.withDefaultPasswordEncoder().username("user").password("user").roles("USER").build(),
+				User.withDefaultPasswordEncoder().username("admin").password("admin").roles("USER", "ADMIN").build()
+		);
+		return new InMemoryUserDetailsManager(users);
+	}
+
+	@Override
+	protected void configure(HttpSecurity http) throws Exception {
+		http
+				.authorizeRequests()
+				.antMatchers("/").permitAll()
+				.anyRequest().authenticated()
+
+				.and()
+				.formLogin()
+
+				.and()
+				.logout()
+				.logoutSuccessUrl("/")  // nurodytas URL į kurį nueis po sėkmingo logout'o - pagal nutylėjimą atidaromas login langas
+		;
 	}
 }
 
@@ -175,6 +226,8 @@ class HelloController {
 	@Autowired
 	private CounterService counterService;
 
+	//@RolesAllowed("USER")
+	@PermitAll
 	@GetMapping
 	public String index(ModelMap model) {
 		model.addAttribute("value", counterService.count());
@@ -192,6 +245,7 @@ class EmployeeController {
 		this.counterService = counterService;
 	}
 
+	@RolesAllowed({"ADMIN","MANAGER"})
 	@GetMapping
 	public String getEmployee(ModelMap model) {
 		model.addAttribute("name", "Jonas");
@@ -249,7 +303,7 @@ class API {
 		return account;
 	}
 
-	@GetMapping("/account/{name}/{id}")
+	@GetMapping({"/account/{name}/{id}", "/account/{name}"})
 	public ResponseEntity<Account> getAccountByPath(@PathVariable(required = false) Integer id,
 													@PathVariable String name) {
 		if (id != null && id > 0) {

@@ -16,7 +16,7 @@ Accept: application/json
 
 ###
 
-GET http://localhost:8888/api/account/Ona
+GET http://localhost:8888/api/account/Ona/
 Accept: application/json
 
 ###
