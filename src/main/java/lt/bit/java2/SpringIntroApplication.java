@@ -1,19 +1,23 @@
 package lt.bit.java2;
 
+import lt.bit.java2.entities.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.repository.CrudRepository;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
-import org.springframework.stereotype.Component;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
@@ -34,14 +38,13 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.net.URL;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Currency;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 @SpringBootApplication
@@ -65,18 +68,25 @@ class MVCConfig implements WebMvcConfigurer {
 }
 
 @Configuration
-@EnableGlobalMethodSecurity(jsr250Enabled = true)
+@EnableGlobalMethodSecurity(
+		jsr250Enabled = true,
+		securedEnabled = true)
 class SecurityConfig extends WebSecurityConfigurerAdapter {
 
 	@Bean
-	@Override
-	protected UserDetailsService userDetailsService() {
-		List<UserDetails> users = Arrays.asList(
-				User.withDefaultPasswordEncoder().username("user").password("user").roles("USER").build(),
-				User.withDefaultPasswordEncoder().username("admin").password("admin").roles("USER", "ADMIN").build()
-		);
-		return new InMemoryUserDetailsManager(users);
+	PasswordEncoder passwordEncoder() {
+		return new BCryptPasswordEncoder(12);
 	}
+
+//	@Bean
+//	@Override
+//	protected UserDetailsService userDetailsService() {
+//		List<UserDetails> users = Arrays.asList(
+//				User.withDefaultPasswordEncoder().username("user").password("user").roles("USER").build(),
+//				User.withDefaultPasswordEncoder().username("admin").password("admin").roles("USER", "ADMIN").build()
+//		);
+//		return new InMemoryUserDetailsManager(users);
+//	}
 
 	@Override
 	protected void configure(HttpSecurity http) throws Exception {
@@ -92,6 +102,65 @@ class SecurityConfig extends WebSecurityConfigurerAdapter {
 				.logout()
 				.logoutSuccessUrl("/")  // nurodytas URL į kurį nueis po sėkmingo logout'o - pagal nutylėjimą atidaromas login langas
 		;
+	}
+}
+
+interface UserRepository extends CrudRepository<User, Integer> {
+
+	User findByEmail(String email);
+}
+
+@Service
+class AppUserDetailService implements UserDetailsService {
+
+	private final UserRepository userRepository;
+
+	AppUserDetailService(UserRepository userRepository) {
+		this.userRepository = userRepository;
+	}
+
+	@Override
+	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+		User user = userRepository.findByEmail(username);
+		if (user == null) throw new UsernameNotFoundException("Not found");
+		return new UserDetails() {
+
+			@Override
+			public Collection<? extends GrantedAuthority> getAuthorities() {
+				return Collections.singletonList(() -> "ROLE_" + user.getRole());
+			}
+
+			@Override
+			public String getPassword() {
+				return user.getPasswd();
+			}
+
+			@Override
+			public String getUsername() {
+				return user.getEmail();
+			}
+
+			@Override
+			public boolean isAccountNonExpired() {
+				return user.getTime() == null ||
+						user.getTime().isBefore(LocalDateTime.now());
+			}
+
+			@Override
+			public boolean isAccountNonLocked() {
+				return true;
+			}
+
+			@Override
+			public boolean isCredentialsNonExpired() {
+				return true;
+			}
+
+			@Override
+			public boolean isEnabled() {
+				return user.getDisabled() == null || !user.getDisabled();
+			}
+		};
 	}
 }
 
@@ -245,7 +314,7 @@ class EmployeeController {
 		this.counterService = counterService;
 	}
 
-	@RolesAllowed({"ADMIN","MANAGER"})
+	@RolesAllowed("ADMIN")
 	@GetMapping
 	public String getEmployee(ModelMap model) {
 		model.addAttribute("name", "Jonas");
